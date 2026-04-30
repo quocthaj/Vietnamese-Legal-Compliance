@@ -1,1 +1,5 @@
 .env
+agent-legal/
+data/
+__pycache__/
+*.pyc

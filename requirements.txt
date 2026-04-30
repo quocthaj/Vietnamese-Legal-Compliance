@@ -1,0 +1,9 @@
+langgraph
+fastapi
+uvicorn
+groq
+qdrant-client
+pdfplumber
+sentence-transformers
+python-dotenv
+psycopg2-binary
