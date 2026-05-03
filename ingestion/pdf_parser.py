@@ -4,7 +4,15 @@ import psycopg2
 import os
 
 CONTENT_PREVIEW = 100  # Giới hạn ký tự nội dung hiển thị khi print
-TEN_FILE = "Luatanninhmang.pdf"
+
+# ── Danh sách file cần parse ────────────────────────────────────────────
+PDF_FILES = [
+    "LuatDulieucanhan.pdf",
+    "LuatTrituenhantao.pdf",
+    "Luatso20_2023_QH15_Luatgiaodichdientu.pdf",
+]
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
 # ── Kết nối PostgreSQL ──────────────────────────────────────────────────
 conn = psycopg2.connect(
@@ -17,16 +25,36 @@ conn = psycopg2.connect(
 cursor = conn.cursor()
 print("✅ Kết nối PostgreSQL thành công!")
 
-# ── Đọc PDF ────────────────────────────────────────────────────────────
-with pdfplumber.open(f"../data/{TEN_FILE}") as pdf:
-    full_text = ""
-    for page in pdf.pages:
-        text = page.extract_text()
-        if text:
-            full_text += text.replace('\r', '') + "\n"
+
+def parse_and_insert(ten_file: str) -> int:
+    """
+    Parse 1 file PDF → extract metadata + từng Điều → INSERT vào legal_chunks.
+    Trả về số điều đã insert.
+    Bỏ qua nếu file đã tồn tại trong DB.
+    """
+    # ── Kiểm tra trùng ─────────────────────────────────────────────────
+    cursor.execute(
+        "SELECT COUNT(*) FROM legal_chunks WHERE ten_file = %s", (ten_file,)
+    )
+    existing = cursor.fetchone()[0]
+    if existing > 0:
+        print(f"\n⏭️  Bỏ qua '{ten_file}' — đã có {existing} chunks trong DB.")
+        return 0
+
+    pdf_path = os.path.join(DATA_DIR, ten_file)
+    if not os.path.exists(pdf_path):
+        print(f"\n❌ Không tìm thấy file: {pdf_path}")
+        return 0
+
+    # ── Đọc PDF ────────────────────────────────────────────────────────
+    with pdfplumber.open(pdf_path) as pdf:
+        full_text = ""
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                full_text += text.replace('\r', '') + "\n"
 
     # ── 1. METADATA ────────────────────────────────────────────────────
-
     # Số hiệu luật — VD: 116/2025/QH15
     match_luat = re.search(r'Luật số[:\s]+(\d+/\d{4}/QH\d+)', full_text)
     so_hieu_luat = match_luat.group(1) if match_luat else None
@@ -49,14 +77,15 @@ with pdfplumber.open(f"../data/{TEN_FILE}") as pdf:
     else:
         ngay_ban_hanh = None
 
-    print("=" * 60)
+    print("\n" + "=" * 60)
+    print(f"  📄 File        : {ten_file}")
     print(f"  Loại văn bản : {loai_van_ban}")
     print(f"  Số hiệu      : {so_hieu_luat}")
     print(f"  Ngày ban hành: {ngay_ban_hanh}")
     print("=" * 60)
 
     # ── 2. PARSE & INSERT TỪNG ĐIỀU ────────────────────────────────────
-    chunks = re.split(r'\n\s*["\']?\s*(Điều\s+\d+\.)', '\n' + full_text)
+    chunks = re.split(r"\n\s*[\"'']?\s*(Điều\s+\d+\.)", '\n' + full_text)
 
     insert_count = 0
     for i in range(1, len(chunks) - 1, 2):
@@ -109,7 +138,7 @@ with pdfplumber.open(f"../data/{TEN_FILE}") as pdf:
                 (loai_van_ban, so_hieu, ngay_ban_hanh, ten_file, so_dieu, ten_dieu, noi_dung)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
-            (loai_van_ban, so_hieu_luat, ngay_ban_hanh, TEN_FILE, so_dieu, ten_dieu, noi_dung)
+            (loai_van_ban, so_hieu_luat, ngay_ban_hanh, ten_file, so_dieu, ten_dieu, noi_dung)
         )
         insert_count += 1
 
@@ -118,8 +147,18 @@ with pdfplumber.open(f"../data/{TEN_FILE}") as pdf:
         print("-" * 60)
 
     conn.commit()
-    print(f"\n✅ Đã INSERT {insert_count} điều vào bảng legal_chunks.")
+    print(f"\n✅ Đã INSERT {insert_count} điều từ '{ten_file}' vào bảng legal_chunks.")
+    return insert_count
 
+
+# ════════════════════════════════════════════════════════════════════════
+# Main — loop qua tất cả PDF
+# ════════════════════════════════════════════════════════════════════════
+total = 0
+for f in PDF_FILES:
+    total += parse_and_insert(f)
+
+print(f"\n🎉 Tổng cộng: {total} điều đã được insert.")
 cursor.close()
 conn.close()
 print("🔒 Đã đóng kết nối PostgreSQL.")

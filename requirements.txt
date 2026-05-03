@@ -7,3 +7,5 @@ pdfplumber
 sentence-transformers
 python-dotenv
 psycopg2-binary
+rank_bm25
+underthesea

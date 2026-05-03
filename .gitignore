@@ -3,3 +3,17 @@ agent-legal/
 data/
 __pycache__/
 *.pyc
+
+# Machine Learning / Data
+*.pkl
+*.db
+*.sqlite
+*.sqlite3
+chroma_db/
+faiss_index/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
