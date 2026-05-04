@@ -3,6 +3,11 @@ import json
 from typing import Dict, Any
 from groq import Groq
 from dotenv import load_dotenv
+import sys
+
+# Đảm bảo có thể import từ thư mục cha
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from ingestion.hybrid_search import hybrid_search
 
 load_dotenv() # Load environment variables from .env file
 
@@ -72,16 +77,80 @@ Chỉ trả về JSON hợp lệ, không bọc trong markdown (```json)."""
             "intent": "khong_xac_dinh"
         }
 
-
-# Thêm vào cuối file nodes.py
-if __name__ == "__main__":
-    test_queries = [
-        "Điều 5 Luật An ninh mạng quy định gì?",
-        "doanh nghiệp cần làm gì?",
-        "luật sư"
-    ]
+def retriever(state: dict) -> dict:
+    """Retrieve relevant legal documents using Hybrid Search (RRF)."""
+    print("Node: retriever")
+    query = state.get("query", "")
+    keywords = state.get("keywords", [])
     
-    for q in test_queries:
-        print(f"\nQuery: {q}")
-        result = query_analyzer({"query": q})
-        print(result)
+    # Kết hợp query và keywords để tạo câu truy vấn
+    search_query = query
+    if keywords:
+        search_query += " " + " ".join(keywords)
+        
+    print(f"[retriever] Tìm kiếm với: {search_query}")
+    
+    try:
+        # Gọi RRF function từ hybrid_search.py
+        results = hybrid_search(search_query)
+        
+        # Trích xuất nội dung từ chunks
+        context_list = []
+        for r in results:
+            v_ban = f"Văn bản: {r.get('loai_van_ban', '')} {r.get('so_hieu', '')}"
+            dieu = f"Điều {r.get('so_dieu', '')}. {r.get('ten_dieu', '')}"
+            noi_dung = r.get('noi_dung', '')
+            context_list.append(f"{v_ban}\n{dieu}\nNội dung: {noi_dung}")
+            
+        context_str = "\n\n---\n\n".join(context_list)
+        print(f"[retriever] Đã tìm thấy {len(results)} chunks.")
+        
+        # --- CRAG Evaluation ---
+        is_sufficient = False
+        if context_str.strip():
+            crag_system_prompt = """Bạn là chuyên gia đánh giá tài liệu (CRAG - Corrective Retrieval Augmented Generation).
+Nhiệm vụ của bạn là đọc các đoạn trích (chunks) văn bản pháp luật và đánh giá xem chúng có chứa ĐỦ thông tin cốt lõi để trả lời câu hỏi của người dùng hay không.
+
+Hãy trả về JSON với format chính xác sau:
+{
+    "is_sufficient": true/false,
+    "reasoning": "giải thích ngắn gọn lý do tại sao đủ hoặc không đủ"
+}
+
+Quy tắc:
+- Trả về true nếu CÓ ÍT NHẤT MỘT đoạn trích trực tiếp giải quyết hoặc có liên quan mật thiết để trả lời câu hỏi.
+- Trả về false nếu KHÔNG CÓ đoạn trích nào liên quan, hoặc thông tin quá chung chung không đủ để trả lời một cách chính xác.
+- Chỉ trả về JSON hợp lệ, không bọc trong markdown."""
+
+            try:
+                response = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": crag_system_prompt},
+                        {"role": "user", "content": f"Câu hỏi: {query}\n\nCác đoạn trích:\n{context_str}"}
+                    ],
+                    model="llama-3.1-8b-instant",
+                    temperature=0,
+                    response_format={"type": "json_object"}
+                )
+                
+                crag_result = json.loads(response.choices[0].message.content)
+                is_sufficient = crag_result.get("is_sufficient", False)
+                print(f"[CRAG] Đánh giá is_sufficient: {is_sufficient} - {crag_result.get('reasoning', '')}")
+            except Exception as crag_err:
+                print(f"[Error in CRAG]: {crag_err}")
+                # Nếu LLM lỗi, mặc định true để đi tiếp tới generator (có thể tuỳ chỉnh theo logic của bạn)
+                is_sufficient = True 
+        
+        return {"context": context_str, "is_sufficient": is_sufficient}
+        
+    except Exception as e:
+        print(f"[Error in retriever]: {e}")
+        return {"context": "", "is_sufficient": False}
+
+
+# if __name__ == "__main__":
+#     result = retriever({
+#         "query": "Điều 5 Luật An ninh mạng quy định gì?",
+#         "keywords": ["an ninh mạng", "Điều 5"]
+#     })
+#     print(result)

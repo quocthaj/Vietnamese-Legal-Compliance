@@ -108,7 +108,7 @@ for batch_start in range(0, len(rows), BATCH_SIZE):
                     "loai_van_ban": loai,
                     "ngay_ban_hanh": ngay,
                     "ten_file":     ten_file,
-                    "noi_dung":     (noi_dung or "")[:500],  # preview payload
+                    "noi_dung":     noi_dung or "",
                 },
             )
         )

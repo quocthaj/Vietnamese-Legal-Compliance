@@ -107,14 +107,3 @@ workflow.add_conditional_edges(
 )
 # Compile Graph
 app = workflow.compile()
-result = app.invoke({
-    "query": "an ninh mạng là gì",
-    "is_ambiguous": True,
-    "retriever_count": 0,
-    "generator_count": 0,
-    "is_sufficient": False,
-    "pass_judge": False,
-    "context": "",
-    "answer": ""
-})
-print(result)
