@@ -147,10 +147,68 @@ Quy tắc:
         print(f"[Error in retriever]: {e}")
         return {"context": "", "is_sufficient": False}
 
+def generator_node(state: dict) -> dict:
+    """Generate answer based on query and retrieved context using Groq."""
+    print("Node: generator_node")
+    query = state.get("query", "")
+    context = state.get("context", "")
 
-# if __name__ == "__main__":
-#     result = retriever({
-#         "query": "Điều 5 Luật An ninh mạng quy định gì?",
-#         "keywords": ["an ninh mạng", "Điều 5"]
-#     })
-#     print(result)
+    system_prompt = """Bạn là chuyên gia tư vấn pháp luật Việt Nam. Nhiệm vụ của bạn là
+phân tích câu hỏi được cung cấp dựa trên tài liệu pháp lý kèm theo.
+Quy trình trả lời:
+1. Xác định điều khoản liên quan trong tài liệu
+2. Giải thích ý nghĩa pháp lý rõ ràng, có trích dẫn nguồn
+3. Kết luận ngắn gọn
+Ràng buộc bắt buộc:
+- Chỉ sử dụng thông tin có trong tài liệu, không suy luận thêm
+- Trích dẫn đầy đủ: [Tên luật - Điều X - Khoản Y]
+- Nếu tài liệu không đủ: thông báo rõ và đề xuất nguồn tham khảo
+- Không đưa ra tư vấn pháp lý cá nhân — khuyến nghị gặp luật sư
+Phong cách: trang trọng, chính xác, cấu trúc rõ ràng."""
+
+    try:
+        response = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Câu hỏi: {query}\n\nTài liệu:\n{context}"}
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0
+        )
+        
+        answer = response.choices[0].message.content
+        print(f"[generator_node] Generated Answer successfully.")
+        
+        return {"answer": answer}
+        
+    except Exception as e:
+        print(f"[Error in generator_node]: {e}")
+        return {"answer": "Xin lỗi, đã có lỗi xảy ra trong quá trình tạo câu trả lời. Vui lòng thử lại sau."}
+
+if __name__ == "__main__":
+    # 1. Khởi tạo State ban đầu
+    state = {
+        "query": "Lỡ lấy dữ liệu người ta đem bán có sao không trong Luật dữ liệu cá nhân ?"
+    }
+    
+    print("=== START TEST WORKFLOW ===")
+    
+    # 2. Chạy Query Analyzer
+    analyzer_result = query_analyzer(state)
+    state.update(analyzer_result) # Cập nhật keywords, is_ambiguous, v.v. vào state
+    
+    # Mô phỏng rẽ nhánh: Nếu câu hỏi mơ hồ thì dừng (Clarify)
+    if state.get("is_ambiguous"):
+        print("\n=> Flow dừng: Câu hỏi mơ hồ, cần hỏi lại user.")
+    else:
+        # 3. Chạy Retriever
+        retriever_result = retriever(state)
+        state.update(retriever_result) # Cập nhật context vào state
+        
+        # 4. Chạy Generator
+        generator_result = generator_node(state)
+        state.update(generator_result) # Cập nhật answer vào state
+        
+        # 5. In kết quả cuối cùng
+        print("\n=== FINAL ANSWER ===")
+        print(state.get("answer"))
