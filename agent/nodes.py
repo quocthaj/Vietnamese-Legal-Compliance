@@ -35,7 +35,7 @@ Hãy phân tích câu hỏi và trả về JSON với format chính xác sau:
 
 Quy tắc cho is_ambiguous:
 - Trả về true nếu câu hỏi quá ngắn, tối nghĩa, không thể xác định được người dùng muốn hỏi về vấn đề pháp lý gì (ví dụ: "làm sao để phạt", "luật sư").
-- Trả về false nếu câu hỏi có ngữ cảnh cụ thể (ví dụ: "Mức xử phạt khi vượt đèn đỏ là bao nhiêu?").
+Trả về false nếu câu hỏi mô tả được hành vi hoặc tình huống pháp lý cụ thể, dù không cần nêu tên luật.
 
 Chỉ trả về JSON hợp lệ, không bọc trong markdown (```json)."""
 
@@ -141,8 +141,14 @@ Quy tắc:
                 # Nếu LLM lỗi, mặc định true để đi tiếp tới generator (có thể tuỳ chỉnh theo logic của bạn)
                 is_sufficient = True 
         
-        return {"context": context_str, "is_sufficient": is_sufficient}
-        
+        # Return updated context, sufficiency and increment retriever count
+        return {
+            "context": context_str,
+            "is_sufficient": is_sufficient,
+            "retriever_count": state.get("retriever_count", 0) + 1
+        }
+
+
     except Exception as e:
         print(f"[Error in retriever]: {e}")
         return {"context": "", "is_sufficient": False}
@@ -178,12 +184,66 @@ Phong cách: trang trọng, chính xác, cấu trúc rõ ràng."""
         
         answer = response.choices[0].message.content
         print(f"[generator_node] Generated Answer successfully.")
-        
-        return {"answer": answer}
-        
+        return {"answer": answer, "generator_count": state.get("generator_count", 0) + 1}
     except Exception as e:
         print(f"[Error in generator_node]: {e}")
-        return {"answer": "Xin lỗi, đã có lỗi xảy ra trong quá trình tạo câu trả lời. Vui lòng thử lại sau."}
+        return {
+            "answer": "Xin lỗi, đã có lỗi xảy ra trong quá trình tạo câu trả lời. Vui lòng thử lại sau.",
+            "generator_count": state.get("generator_count", 0) + 1
+        }
+
+
+def judge(state: dict) -> dict:
+    """Judge whether the generated answer's legal facts appear in the retrieved context.
+
+    Returns a dict with "pass_judge" and a list of missing items.
+    """
+    print("Node: judge")
+    context = state.get("context", "")
+    answer = state.get("answer", "")
+
+    system_prompt = """Bạn là chuyên gia đánh giá câu trả lời dựa trên ngữ cảnh pháp luật.
+
+Nhiệm vụ: kiểm tra các trích dẫn pháp lý trong `answer` có tồn tại trong `context` không.
+
+Chỉ kiểm tra những điều khoản được trích dẫn trực tiếp trong `answer` 
+theo format [TÊN LUẬT - Điều X - Khoản Y].
+Bỏ qua mọi thông tin khác không theo format này.
+
+Quy trình:
+1. Tìm tất cả citation theo format [TÊN LUẬT - Điều X - Khoản Y] trong answer
+2. Kiểm tra từng citation đó có xuất hiện trong context không
+3. Nếu tất cả đều có → pass_judge: true
+4. Nếu có citation không tìm thấy → pass_judge: false, liệt kê vào missing
+
+Yêu cầu trả về JSON hợp lệ (không bọc trong markdown)."""
+    user_message = f"Context:\n{context}\n\nAnswer:\n{answer}"
+    try:
+        response = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0,
+            response_format={"type": "json_object"}
+        )
+        result_text = response.choices[0].message.content
+        result = json.loads(result_text)
+        output = {"pass_judge": result.get("pass_judge", False), "missing": result.get("missing", [])}
+        print(f"[judge] LLM result: {output}")
+        return output
+
+    except Exception as e:
+        print(f"[Error in judge]: {e}")
+        # Fallback simple verification
+        answer_lines = [line.strip() for line in answer.splitlines() if line.strip()]
+        lowered_context = context.lower()
+        missing = [line for line in answer_lines if line.lower() not in lowered_context]
+        output = {"pass_judge": len(missing) == 0, "missing": missing}
+        print(f"[judge] fallback result: {output}")
+        return output
+
 
 if __name__ == "__main__":
     # 1. Khởi tạo State ban đầu
@@ -209,6 +269,14 @@ if __name__ == "__main__":
         generator_result = generator_node(state)
         state.update(generator_result) # Cập nhật answer vào state
         
-        # 5. In kết quả cuối cùng
+        # 5. Chạy Judge
+        judge_result = judge(state)
+        state.update(judge_result)
+        
+        # 6. In kết quả cuối cùng
+        print("\n=== JUDGE RESULT ===")
+        print(f"Pass: {state.get('pass_judge')}")
+        print(f"Missing: {state.get('missing')}")
         print("\n=== FINAL ANSWER ===")
         print(state.get("answer"))
+        print(f"\n[Judge Status] Pass: {state.get('pass_judge')}")

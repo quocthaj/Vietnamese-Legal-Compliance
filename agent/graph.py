@@ -1,6 +1,9 @@
-from typing import TypedDict, Annotated, Sequence, Optional
+from typing import TypedDict, Annotated, Optional
 import operator
 from langgraph.graph import StateGraph, START, END
+
+from nodes import query_analyzer, retriever, generator_node, judge
+
 # Define State
 class AgentState(TypedDict):
     keywords: list[str]
@@ -8,45 +11,23 @@ class AgentState(TypedDict):
     ten_van_ban: Optional[str]
     intent: str
     query: str
-    is_ambiguous: bool #câu hỏi mơ hồ
-    context: str #thông tin thu thập được từ luật
-    answer: str #câu trả lời
-    retriever_count: Annotated[int, operator.add] #số lần truy xuất
-    generator_count: Annotated[int, operator.add] #số lần sinh câu trả lời
-    is_sufficient: bool #đủ thông tin
-    pass_judge: bool #đạt yêu cầu của judge
+    is_ambiguous: bool  # câu hỏi mơ hồ
+    context: str  # thông tin thu thập được từ luật
+    answer: str  # câu trả lời
+    retriever_count: Annotated[int, operator.add]
+    generator_count: Annotated[int, operator.add]
+    is_sufficient: bool
+    pass_judge: bool
 
-# Define Nodes
-def query_analyzer(state: AgentState) -> dict:
-    """Analyze the user's query."""
-    print("Node: query_analyzer")
-    # Giả lập query_analyzer: trả về False cho is_ambiguous
-    return {"is_ambiguous": True}
-
+# Placeholder for ambiguous query handling (can be kept simple)
 def clarify_node(state: AgentState) -> dict:
-    """Ask user to clarify ambiguous query."""
+    """Ask user to clarify ambiguous query (fallback)."""
     print("Node: clarify_node")
     return {"answer": "Bạn có thể làm rõ câu hỏi hơn được không?"}
-def retriever(state: AgentState) -> dict:
-    """Retrieve documents and check if they are sufficient."""
-    print("Node: retriever")
-    # Increment retriever count
-    return {"retriever_count": 1}
-def generator(state: AgentState) -> dict:
-    """Generate answer based on context."""
-    print("Node: generator")
-    return {"generator_count": 1}
-def judge(state: AgentState) -> dict:
-    """Evaluate the generated answer."""
-    print("Node: judge")
-    
-    # Giả lập logic chấm điểm của Judge (sẽ thay bằng LLM call sau)
-    is_passed = False 
-    
-    if not is_passed:
-        return {"pass_judge": False}
-        
-    return {"pass_judge": True}
+
+# Map node names to imported functions
+# query_analyzer, retriever, generator, judge will refer to the imported implementations
+
 # Define Edge Logic Functions
 def check_ambiguity(state: AgentState) -> str:
     """Determine whether the query is ambiguous."""
@@ -69,7 +50,7 @@ workflow = StateGraph(AgentState)
 workflow.add_node("query_analyzer", query_analyzer)
 workflow.add_node("clarify_node", clarify_node)
 workflow.add_node("retriever", retriever)
-workflow.add_node("generator", generator)
+workflow.add_node("generator", generator_node)
 workflow.add_node("judge", judge)
 # Add Edges
 workflow.add_edge(START, "query_analyzer")
