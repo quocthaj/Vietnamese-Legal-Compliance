@@ -56,7 +56,9 @@ load_dotenv(dotenv_path="../.env")
 MODEL_NAME    = "mainguyen9/vietlegal-harrier-0.6b"
 COLLECTION    = "legal_chunks"
 VECTOR_SIZE   = 1024
-BM25_CACHE    = "bm25_indexer.pkl"      # cache BM25 (do bm25_indexer.py tạo)
+# Trỏ trực tiếp vào thư mục ingestion (thư mục chứa file này) vì bm25_indexer.pkl đang nằm ở đây
+INGESTION_DIR = os.path.dirname(__file__)
+BM25_CACHE    = os.path.join(INGESTION_DIR, "bm25_indexer.pkl")
 
 DB_CONFIG = dict(
     host="localhost",
