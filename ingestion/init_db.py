@@ -11,8 +11,21 @@ conn = psycopg2.connect(
 cursor = conn.cursor()
 
 cursor.execute("""
+    CREATE TABLE IF NOT EXISTS legal_documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ten_file TEXT,
+        loai_van_ban TEXT,
+        so_hieu TEXT,
+        ngay_ban_hanh DATE,
+        trang_thai TEXT,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+""")
+
+cursor.execute("""
     CREATE TABLE IF NOT EXISTS legal_chunks (
         id SERIAL PRIMARY KEY,
+        document_id UUID REFERENCES legal_documents(id),
         loai_van_ban VARCHAR(50),
         so_hieu VARCHAR(50),
         ngay_ban_hanh VARCHAR(20),

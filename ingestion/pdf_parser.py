@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 import pdfplumber
 import re
 import psycopg2
@@ -28,17 +29,17 @@ print("✅ Kết nối PostgreSQL thành công!")
 
 def parse_and_insert(ten_file: str) -> int:
     """
-    Parse 1 file PDF → extract metadata + từng Điều → INSERT vào legal_chunks.
+    Parse 1 file PDF → extract metadata + từng Điều → INSERT vào legal_documents (lấy ID) 
+    → INSERT vào legal_chunks kèm document_id.
     Trả về số điều đã insert.
-    Bỏ qua nếu file đã tồn tại trong DB.
     """
-    # ── Kiểm tra trùng ─────────────────────────────────────────────────
+    # ── Kiểm tra trùng trong legal_documents ────────────────────────────
     cursor.execute(
-        "SELECT COUNT(*) FROM legal_chunks WHERE ten_file = %s", (ten_file,)
+        "SELECT id FROM legal_documents WHERE ten_file = %s", (ten_file,)
     )
-    existing = cursor.fetchone()[0]
-    if existing > 0:
-        print(f"\n⏭️  Bỏ qua '{ten_file}' — đã có {existing} chunks trong DB.")
+    res = cursor.fetchone()
+    if res:
+        print(f"\n⏭️  Bỏ qua '{ten_file}' — đã tồn tại trong legal_documents (ID: {res[0]}).")
         return 0
 
     pdf_path = os.path.join(DATA_DIR, ten_file)
@@ -67,24 +68,39 @@ def parse_and_insert(ten_file: str) -> int:
     loai_van_ban = match_loai.group(1).strip() if match_loai else None
 
     # Ngày ban hành — "thông qua ngày DD tháng MM năm YYYY"
+    # Format lại thành YYYY-MM-DD cho kiểu DATE trong Postgres
     match_ngay = re.search(
         r'thông qua ngày\s+(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})',
         full_text, re.IGNORECASE
     )
     if match_ngay:
         d, m, y = match_ngay.group(1), match_ngay.group(2), match_ngay.group(3)
-        ngay_ban_hanh = f"{d.zfill(2)}/{m.zfill(2)}/{y}"
+        ngay_ban_hanh_sql = f"{y}-{m.zfill(2)}-{d.zfill(2)}" # YYYY-MM-DD
+        ngay_ban_hanh_str = f"{d.zfill(2)}/{m.zfill(2)}/{y}" # DD/MM/YYYY (để giữ cho bảng chunks nếu cần)
     else:
-        ngay_ban_hanh = None
+        ngay_ban_hanh_sql = None
+        ngay_ban_hanh_str = None
 
     print("\n" + "=" * 60)
     print(f"  📄 File        : {ten_file}")
     print(f"  Loại văn bản : {loai_van_ban}")
     print(f"  Số hiệu      : {so_hieu_luat}")
-    print(f"  Ngày ban hành: {ngay_ban_hanh}")
+    print(f"  Ngày ban hành: {ngay_ban_hanh_str}")
     print("=" * 60)
 
-    # ── 2. PARSE & INSERT TỪNG ĐIỀU ────────────────────────────────────
+    # ── 2. INSERT vào legal_documents để lấy ID ────────────────────────
+    cursor.execute(
+        """
+        INSERT INTO legal_documents (ten_file, loai_van_ban, so_hieu, ngay_ban_hanh, trang_thai)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id;
+        """,
+        (ten_file, loai_van_ban, so_hieu_luat, ngay_ban_hanh_sql, "Hiệu lực")
+    )
+    document_id = cursor.fetchone()[0]
+    print(f"✅ Đã tạo document entry. ID: {document_id}")
+
+    # ── 3. PARSE & INSERT TỪNG ĐIỀU ────────────────────────────────────
     chunks = re.split(r"\n\s*[\"'']?\s*(Điều\s+\d+\.)", '\n' + full_text)
 
     insert_count = 0
@@ -131,20 +147,20 @@ def parse_and_insert(ten_file: str) -> int:
         noi_dung = "\n".join(lines[body_start_idx:]).strip()
         content_preview = noi_dung[:CONTENT_PREVIEW] + ("..." if len(noi_dung) > CONTENT_PREVIEW else "")
 
-        # ── INSERT vào PostgreSQL ──────────────────────────────────────
+        # ── INSERT vào legal_chunks kèm document_id ────────────────────
         cursor.execute(
             """
             INSERT INTO legal_chunks
-                (loai_van_ban, so_hieu, ngay_ban_hanh, ten_file, so_dieu, ten_dieu, noi_dung)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (document_id, loai_van_ban, so_hieu, ngay_ban_hanh, ten_file, so_dieu, ten_dieu, noi_dung)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (loai_van_ban, so_hieu_luat, ngay_ban_hanh, ten_file, so_dieu, ten_dieu, noi_dung)
+            (document_id, loai_van_ban, so_hieu_luat, ngay_ban_hanh_str, ten_file, so_dieu, ten_dieu, noi_dung)
         )
         insert_count += 1
 
         print(f"  [Điều {so_dieu:>3}] {ten_dieu[:50]}")
-        print(f"           {content_preview}")
-        print("-" * 60)
+        # print(f"           {content_preview}")
+        # print("-" * 60)
 
     conn.commit()
     print(f"\n✅ Đã INSERT {insert_count} điều từ '{ten_file}' vào bảng legal_chunks.")

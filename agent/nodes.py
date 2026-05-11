@@ -158,6 +158,7 @@ def generator_node(state: dict) -> dict:
     print("Node: generator_node")
     query = state.get("query", "")
     context = state.get("context", "")
+    chat_history = state.get("chat_history", [])
 
     system_prompt = """Bạn là chuyên gia tư vấn pháp luật Việt Nam. Nhiệm vụ của bạn là
 phân tích câu hỏi được cung cấp dựa trên tài liệu pháp lý kèm theo.
@@ -172,11 +173,15 @@ Ràng buộc bắt buộc:
 - Không đưa ra tư vấn pháp lý cá nhân — khuyến nghị gặp luật sư
 Phong cách: trang trọng, chính xác, cấu trúc rõ ràng."""
 
+    # Message hiện tại của user
+    user_message = {"role": "user", "content": f"Câu hỏi: {query}\n\nTài liệu:\n{context}"}
+
     try:
         response = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Câu hỏi: {query}\n\nTài liệu:\n{context}"}
+                *chat_history,       # history cũ (multi-turn context)
+                user_message,        # câu hỏi hiện tại
             ],
             model="llama-3.3-70b-versatile",
             temperature=0
@@ -184,7 +189,12 @@ Phong cách: trang trọng, chính xác, cấu trúc rõ ràng."""
         
         answer = response.choices[0].message.content
         print(f"[generator_node] Generated Answer successfully.")
-        return {"answer": answer, "generator_count": state.get("generator_count", 0) + 1}
+
+        return {
+            "answer": answer,
+            "generator_count": state.get("generator_count", 0) + 1,
+            # chat_history chỉ append ở answer_node (tránh duplicate)
+        }
     except Exception as e:
         print(f"[Error in generator_node]: {e}")
         return {
@@ -245,38 +255,18 @@ Yêu cầu trả về JSON hợp lệ (không bọc trong markdown)."""
         return output
 
 
-if __name__ == "__main__":
-    # 1. Khởi tạo State ban đầu
-    state = {
-        "query": "Lỡ lấy dữ liệu người ta đem bán có sao không trong Luật dữ liệu cá nhân ?"
-    }
+def answer_node(state: dict) -> dict:
+    """Final node: append user query and assistant answer into chat_history."""
+    print("Node: answer_node")
+    query = state.get("query", "")
+    answer = state.get("answer", "")
+
+    new_turns = [
+        {"role": "user", "content": query},
+        {"role": "assistant", "content": answer},
+    ]
+    print(f"[answer_node] Appending {len(new_turns)} turns to chat_history.")
+    return {"chat_history": new_turns}
+
+
     
-    print("=== START TEST WORKFLOW ===")
-    
-    # 2. Chạy Query Analyzer
-    analyzer_result = query_analyzer(state)
-    state.update(analyzer_result) # Cập nhật keywords, is_ambiguous, v.v. vào state
-    
-    # Mô phỏng rẽ nhánh: Nếu câu hỏi mơ hồ thì dừng (Clarify)
-    if state.get("is_ambiguous"):
-        print("\n=> Flow dừng: Câu hỏi mơ hồ, cần hỏi lại user.")
-    else:
-        # 3. Chạy Retriever
-        retriever_result = retriever(state)
-        state.update(retriever_result) # Cập nhật context vào state
-        
-        # 4. Chạy Generator
-        generator_result = generator_node(state)
-        state.update(generator_result) # Cập nhật answer vào state
-        
-        # 5. Chạy Judge
-        judge_result = judge(state)
-        state.update(judge_result)
-        
-        # 6. In kết quả cuối cùng
-        print("\n=== JUDGE RESULT ===")
-        print(f"Pass: {state.get('pass_judge')}")
-        print(f"Missing: {state.get('missing')}")
-        print("\n=== FINAL ANSWER ===")
-        print(state.get("answer"))
-        print(f"\n[Judge Status] Pass: {state.get('pass_judge')}")

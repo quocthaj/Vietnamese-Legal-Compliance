@@ -78,7 +78,7 @@ for batch_start in range(0, len(rows), BATCH_SIZE):
 
     # Tạo text đầu vào cho model: ghép tiêu đề + nội dung
     texts = []
-    for row in batch:
+    for row in batch: 
         _, loai, so_hieu, ngay, ten_file, so_dieu, ten_dieu, noi_dung = row
         text = f"Điều {so_dieu}. {ten_dieu}\n{noi_dung or ''}".strip()
         texts.append(text)
