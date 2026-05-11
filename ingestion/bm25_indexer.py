@@ -40,12 +40,12 @@ DB_CONFIG = dict(
     password="admin123",
 )
 
-BM25_CACHE_PATH = "bm25_indexer.pkl"   # cache để không phải build lại mỗi lần
+import os
+BM25_CACHE_PATH = os.path.join(os.path.dirname(__file__), "bm25_indexer.pkl")   # cache để không phải build lại mỗi lần
 
 
-# ════════════════════════════════════════════════════════════════════════════
 # SQL: lấy toàn bộ chunks cần thiết để build BM25
-# ══════════════════════════════════════════════════════════════2══════════════
+
 SQL_LOAD_CHUNKS = """
 SELECT
     id,
@@ -72,10 +72,8 @@ SELECT
 FROM legal_chunks;
 """
 
-
-# ════════════════════════════════════════════════════════════════════════════
 # 1. Kết nối & kéo dữ liệu
-# ════════════════════════════════════════════════════════════════════════════
+
 def load_chunks_from_pg() -> list[dict]:
     """Trả về list of dict, mỗi dict là 1 chunk."""
     print("\n📡 Kết nối PostgreSQL...")
@@ -116,10 +114,8 @@ def load_chunks_from_pg() -> list[dict]:
         })
     return chunks
 
-
-# ════════════════════════════════════════════════════════════════════════════
 # 2. Build BM25
-# ════════════════════════════════════════════════════════════════════════════
+
 def build_bm25(chunks: list[dict]) -> BM25Okapi:
     print("🔨 Tokenizing & building BM25...")
     tokenized_corpus = [tokenize(c["text"]) for c in chunks]
@@ -143,9 +139,8 @@ def load_index(path: str = BM25_CACHE_PATH):
     return data["bm25"], data["chunks"]
 
 
-# ════════════════════════════════════════════════════════════════════════════
 # 3. Search
-# ════════════════════════════════════════════════════════════════════════════
+
 def search_bm25(
     query: str,
     bm25: BM25Okapi,
@@ -178,11 +173,9 @@ def search_bm25(
         })
     return results
 
-
-# ════════════════════════════════════════════════════════════════════════════
 # 4. Main
-# ════════════════════════════════════════════════════════════════════════════
-def main():
+
+def run_indexer():
     import os
 
     # Build mới hoặc load từ cache
@@ -193,28 +186,9 @@ def main():
         chunks = load_chunks_from_pg()
         bm25   = build_bm25(chunks)
         save_index(bm25, chunks)
-
-    # ── Demo search ─────────────────────────────────────────────────────────
-    demo_queries = [
-        "Phạm vi điều chỉnh và đối tượng áp dụng",
-        "xử phạt vi phạm hành chính",
-        "quyền và nghĩa vụ của người lao động",
-    ]
-
-    for query in demo_queries:
-        print("=" * 70)
-        print(f"🔍 Query: {query}")
-        results = search_bm25(query, bm25, chunks, top_k=3)
-        if not results:
-            print("  (Không có kết quả)")
-            continue
-        for i, r in enumerate(results, 1):
-            print(f"\n  [{i}] Score={r['score']}  |  Điều {r['so_dieu']} — {r['ten_dieu']}")
-            print(f"       Văn bản: {r['loai_van_ban']} {r['so_hieu']}")
-            print(f"       Nội dung: {r['noi_dung'][:150]}...")
-    print("=" * 70)
-    print("\n🎉 Hoàn thành!")
+    return bm25, chunks
 
 
 if __name__ == "__main__":
-    main()
+    bm25, chunks = run_indexer()
+

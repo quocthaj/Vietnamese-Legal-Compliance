@@ -82,17 +82,18 @@ def retriever(state: dict) -> dict:
     print("Node: retriever")
     query = state.get("query", "")
     keywords = state.get("keywords", [])
+    so_hieu = state.get("so_hieu")
     
     # Kết hợp query và keywords để tạo câu truy vấn
     search_query = query
     if keywords:
         search_query += " " + " ".join(keywords)
         
-    print(f"[retriever] Tìm kiếm với: {search_query}")
+    print(f"[retriever] Tìm kiếm với: {search_query} (số hiệu: {so_hieu})")
     
     try:
         # Gọi RRF function từ hybrid_search.py
-        results = hybrid_search(search_query)
+        results = hybrid_search(search_query, so_hieu=so_hieu)
         
         # Trích xuất nội dung từ chunks
         context_list = []

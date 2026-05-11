@@ -3,8 +3,11 @@ import sys
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel
+import shutil
+import subprocess
+import psycopg2
 
 # Cấu hình sys.path để import được module từ thư mục gốc
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -12,6 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from agent.graph import app as graph_app
 from agent.chat_history import get_history, save_history
 from ingestion.hybrid_search import _get_model, _get_bm25, _get_qdrant
+from ingestion.pdf_parser import parse_and_insert
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -118,6 +122,78 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         print(f"[API Error]: {e}")
         raise HTTPException(status_code=500, detail=f"Lỗi nội bộ server: {str(e)}")
+
+def process_pdf_pipeline(filename: str):
+    """
+    Background task: parse PDF, extract chunks and insert to DB.
+    """
+    try:
+        print(f"[Pipeline] Bắt đầu xử lý: {filename}")
+        
+        # 1. Parse & Insert (trạng thái là 'processing' do pdf_parser đảm nhiệm khi tạo document)
+        parse_and_insert(filename)
+        
+        # 2. Chạy embedder
+        print(f"[Pipeline] Chạy embedder.py...")
+        from ingestion.hybrid_search import _get_model
+        from ingestion.embedder import run_embedding
+        loaded_model = _get_model()
+        run_embedding(model=loaded_model)
+        
+        # 3. Chạy rebuild BM25 (xoá file pkl để ép build lại)
+        print(f"[Pipeline] Chạy rebuild BM25...")
+        bm25_cache = os.path.join(os.path.dirname(__file__), "..", "ingestion", "bm25_indexer.pkl")
+        if os.path.exists(bm25_cache):
+            os.remove(bm25_cache)
+        from ingestion.bm25_indexer import run_indexer
+        run_indexer()
+        
+        from ingestion.hybrid_search import reset_bm25
+        reset_bm25()
+        print(f"[Pipeline] Đã reset BM25 cache in memory.")
+        
+        # 4. Hoàn tất -> UPDATE status='ready'
+        print(f"[Pipeline] Cập nhật trạng thái thành ready...")
+        conn = psycopg2.connect(host="localhost", port=5432, database="legal_db", user="admin", password="admin123")
+        cursor = conn.cursor()
+        cursor.execute("UPDATE legal_documents SET processing_status = 'ready' WHERE ten_file = %s", (filename,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        print(f"[Pipeline] Hoàn tất toàn bộ pipeline: {filename}")
+    except Exception as e:
+        print(f"[Pipeline Error] Lỗi xử lý {filename}: {e}")
+        try:
+            # Nếu có lỗi, đánh dấu failed
+            conn = psycopg2.connect(host="localhost", port=5432, database="legal_db", user="admin", password="admin123")
+            cursor = conn.cursor()
+            cursor.execute("UPDATE legal_documents SET processing_status = 'failed' WHERE ten_file = %s", (filename,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as db_e:
+            print(f"[Pipeline Error] Không thể update status failed: {db_e}")
+
+@app.post("/upload")
+async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    # 1. Validate file là PDF
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file PDF.")
+
+    # 2. Lưu file vào disk
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+    os.makedirs(data_dir, exist_ok=True)
+    file_path = os.path.join(data_dir, file.filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # 3. Chạy pipeline (background)
+    background_tasks.add_task(process_pdf_pipeline, file.filename)
+
+    # 4. Trả response
+    return {"message": f"Đã nhận file {file.filename}, đang xử lý dưới background."}
 
 # Khởi chạy server khi chạy trực tiếp file này
 if __name__ == "__main__":

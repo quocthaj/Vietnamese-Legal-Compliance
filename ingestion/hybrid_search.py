@@ -30,6 +30,7 @@ from dotenv import load_dotenv
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 # ── Tokenizer tiếng Việt ────────────────────────────────────────────────────
 try:
@@ -102,6 +103,13 @@ def _get_bm25():
     return _bm25, _chunks
 
 
+def reset_bm25():
+    """Reset BM25 cache để load lại file .pkl mới."""
+    global _bm25, _chunks
+    _bm25 = None
+    _chunks = None
+
+
 def _get_model():
     """Load SentenceTransformer (cached sau lần đầu)."""
     global _model
@@ -126,9 +134,9 @@ def _get_qdrant():
     return _qdrant
 
 
-# ════════════════════════════════════════════════════════════════════════════
+
 # 1. BM25 Search
-# ════════════════════════════════════════════════════════════════════════════
+
 def search_bm25(query: str, top_k: int = DEFAULT_TOP) -> list[dict]:
     """
     Trả về top_k chunks từ BM25, mỗi item gồm:
@@ -161,7 +169,7 @@ def search_bm25(query: str, top_k: int = DEFAULT_TOP) -> list[dict]:
 # ════════════════════════════════════════════════════════════════════════════
 # 2. Vector Search (Qdrant)
 # ════════════════════════════════════════════════════════════════════════════
-def search_vector(query: str, top_k: int = DEFAULT_TOP) -> list[dict]:
+def search_vector(query: str, top_k: int = DEFAULT_TOP, so_hieu: str = None) -> list[dict]:
     """
     Trả về top_k chunks từ Qdrant (cosine similarity), mỗi item gồm:
         pg_id, rank, vector_score, + metadata
@@ -171,10 +179,22 @@ def search_vector(query: str, top_k: int = DEFAULT_TOP) -> list[dict]:
 
     query_vector = model.encode(query, normalize_embeddings=True)
 
+    query_filter = None
+    if so_hieu:
+        query_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="so_hieu",
+                    match=MatchValue(value=so_hieu)
+                )
+            ]
+        )
+
     hits = qdrant.query_points(
         collection_name=COLLECTION,
         query=query_vector.tolist(),
         limit=top_k,
+        query_filter=query_filter,
     ).points
 
     results = []
@@ -272,6 +292,7 @@ def hybrid_search(
     vector_top: int = DEFAULT_TOP,
     final_top_k: int = FINAL_TOP_K,
     rrf_k: int = RRF_K,
+    so_hieu: str = None,
 ) -> list[dict]:
     """
     Chạy BM25 + Vector search song song → RRF → trả top_k chunks.
@@ -279,7 +300,7 @@ def hybrid_search(
     # Song song: BM25 & Vector
     with ThreadPoolExecutor(max_workers=2) as pool:
         fut_bm25   = pool.submit(search_bm25,   query, bm25_top)
-        fut_vector = pool.submit(search_vector, query, vector_top)
+        fut_vector = pool.submit(search_vector, query, vector_top, so_hieu)
 
     bm25_results   = fut_bm25.result()
     vector_results = fut_vector.result()

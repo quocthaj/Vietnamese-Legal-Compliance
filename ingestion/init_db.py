@@ -18,7 +18,8 @@ cursor.execute("""
         so_hieu TEXT,
         ngay_ban_hanh DATE,
         trang_thai TEXT,
-        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        processing_status TEXT DEFAULT 'pending'
     )
 """)
 

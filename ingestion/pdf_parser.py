@@ -91,8 +91,8 @@ def parse_and_insert(ten_file: str) -> int:
     # ── 2. INSERT vào legal_documents để lấy ID ────────────────────────
     cursor.execute(
         """
-        INSERT INTO legal_documents (ten_file, loai_van_ban, so_hieu, ngay_ban_hanh, trang_thai)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO legal_documents (ten_file, loai_van_ban, so_hieu, ngay_ban_hanh, trang_thai, processing_status)
+        VALUES (%s, %s, %s, %s, %s, 'processing')
         RETURNING id;
         """,
         (ten_file, loai_van_ban, so_hieu_luat, ngay_ban_hanh_sql, "Hiệu lực")
@@ -100,81 +100,88 @@ def parse_and_insert(ten_file: str) -> int:
     document_id = cursor.fetchone()[0]
     print(f"✅ Đã tạo document entry. ID: {document_id}")
 
-    # ── 3. PARSE & INSERT TỪNG ĐIỀU ────────────────────────────────────
-    chunks = re.split(r"\n\s*[\"'']?\s*(Điều\s+\d+\.)", '\n' + full_text)
+    try:
+        # ── 3. PARSE & INSERT TỪNG ĐIỀU ────────────────────────────────────
+        chunks = re.split(r"\n\s*[\"'']?\s*(Điều\s+\d+\.)", '\n' + full_text)
 
-    insert_count = 0
-    for i in range(1, len(chunks) - 1, 2):
-        article = chunks[i] + chunks[i + 1]
-        lines = article.strip().split('\n')
-        if not lines:
-            continue
+        insert_count = 0
+        for i in range(1, len(chunks) - 1, 2):
+            article = chunks[i] + chunks[i + 1]
+            lines = article.strip().split('\n')
+            if not lines:
+                continue
 
-        first_line = lines[0]
-        match_dieu = re.match(r'Điều\s+(\d+)\.\s*(.*)', first_line)
-        if not match_dieu:
-            continue
+            first_line = lines[0]
+            match_dieu = re.match(r'Điều\s+(\d+)\.\s*(.*)', first_line)
+            if not match_dieu:
+                continue
 
-        so_dieu = int(match_dieu.group(1))
-        ten_dieu_lines = []
+            so_dieu = int(match_dieu.group(1))
+            ten_dieu_lines = []
 
-        title_inline = match_dieu.group(2).strip()
-        if title_inline:
-            ten_dieu_lines.append(title_inline)
+            title_inline = match_dieu.group(2).strip()
+            if title_inline:
+                ten_dieu_lines.append(title_inline)
 
-        body_start_idx = 1
-        for idx, line in enumerate(lines[1:], start=1):
-            line_stripped = line.strip()
-            if not line_stripped:
-                if ten_dieu_lines:
-                    body_start_idx = idx + 1
+            body_start_idx = 1
+            for idx, line in enumerate(lines[1:], start=1):
+                line_stripped = line.strip()
+                if not line_stripped:
+                    if ten_dieu_lines:
+                        body_start_idx = idx + 1
+                        break
+                    continue
+                if not ten_dieu_lines:
+                    ten_dieu_lines.append(line_stripped)
+                    continue
+                if re.match(r'^(\d+\.|[a-z]\)|[-+])', line_stripped) or line_stripped[0].isupper():
+                    body_start_idx = idx
                     break
-                continue
-            if not ten_dieu_lines:
                 ten_dieu_lines.append(line_stripped)
+            else:
+                body_start_idx = len(lines)
+
+            ten_dieu = " ".join(ten_dieu_lines)
+            if not ten_dieu:
                 continue
-            if re.match(r'^(\d+\.|[a-z]\)|[-+])', line_stripped) or line_stripped[0].isupper():
-                body_start_idx = idx
-                break
-            ten_dieu_lines.append(line_stripped)
-        else:
-            body_start_idx = len(lines)
 
-        ten_dieu = " ".join(ten_dieu_lines)
-        if not ten_dieu:
-            continue
+            noi_dung = "\n".join(lines[body_start_idx:]).strip()
+            content_preview = noi_dung[:CONTENT_PREVIEW] + ("..." if len(noi_dung) > CONTENT_PREVIEW else "")
 
-        noi_dung = "\n".join(lines[body_start_idx:]).strip()
-        content_preview = noi_dung[:CONTENT_PREVIEW] + ("..." if len(noi_dung) > CONTENT_PREVIEW else "")
+            # ── INSERT vào legal_chunks kèm document_id ────────────────────
+            cursor.execute(
+                """
+                INSERT INTO legal_chunks
+                    (document_id, loai_van_ban, so_hieu, ngay_ban_hanh, ten_file, so_dieu, ten_dieu, noi_dung)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (document_id, loai_van_ban, so_hieu_luat, ngay_ban_hanh_str, ten_file, so_dieu, ten_dieu, noi_dung)
+            )
+            insert_count += 1
 
-        # ── INSERT vào legal_chunks kèm document_id ────────────────────
-        cursor.execute(
-            """
-            INSERT INTO legal_chunks
-                (document_id, loai_van_ban, so_hieu, ngay_ban_hanh, ten_file, so_dieu, ten_dieu, noi_dung)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (document_id, loai_van_ban, so_hieu_luat, ngay_ban_hanh_str, ten_file, so_dieu, ten_dieu, noi_dung)
-        )
-        insert_count += 1
+            print(f"  [Điều {so_dieu:>3}] {ten_dieu[:50]}")
+            # print(f"           {content_preview}")
+            # print("-" * 60)
 
-        print(f"  [Điều {so_dieu:>3}] {ten_dieu[:50]}")
-        # print(f"           {content_preview}")
-        # print("-" * 60)
-
-    conn.commit()
-    print(f"\n✅ Đã INSERT {insert_count} điều từ '{ten_file}' vào bảng legal_chunks.")
-    return insert_count
+        # Cập nhật DB (chỉ commit chunks, để api/main.py quản lý processing_status)
+        conn.commit()
+        print(f"\n✅ Đã INSERT {insert_count} điều từ '{ten_file}' vào bảng legal_chunks.")
+        return insert_count
+    except Exception as e:
+        conn.rollback()
+        print(f"\n❌ Lỗi khi xử lý chunks từ '{ten_file}': {e}")
+        return 0
 
 
 # ════════════════════════════════════════════════════════════════════════
 # Main — loop qua tất cả PDF
 # ════════════════════════════════════════════════════════════════════════
-total = 0
-for f in PDF_FILES:
-    total += parse_and_insert(f)
+    if __name__ == "__main__":
+        total = 0
+    for f in PDF_FILES:
+        total += parse_and_insert(f)
 
-print(f"\n🎉 Tổng cộng: {total} điều đã được insert.")
-cursor.close()
-conn.close()
-print("🔒 Đã đóng kết nối PostgreSQL.")
+    print(f"\n🎉 Tổng cộng: {total} điều đã được insert.")
+    cursor.close()
+    conn.close()
+    print("🔒 Đã đóng kết nối PostgreSQL.")
