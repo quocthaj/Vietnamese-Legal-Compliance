@@ -16,6 +16,7 @@ cursor.execute("""
         ten_file TEXT,
         loai_van_ban TEXT,
         so_hieu TEXT,
+        ten_van_ban TEXT,
         ngay_ban_hanh DATE,
         trang_thai TEXT,
         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

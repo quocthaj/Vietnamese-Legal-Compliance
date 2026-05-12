@@ -17,14 +17,24 @@ from agent.chat_history import get_history, save_history
 from ingestion.hybrid_search import _get_model, _get_bm25, _get_qdrant
 from ingestion.pdf_parser import parse_and_insert
 
+from psycopg2 import pool
+
+# Global database connection pool
+db_pool = None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Quản lý vòng đời của ứng dụng: Load model và index lúc startup.
     """
+    global db_pool
     print("\n" + "="*50)
     print("🚀 ĐANG KHỞI TẠO HỆ THỐNG PHÁP LUẬT...")
     try:
+        # Khởi tạo Connection Pool
+        db_pool = pool.ThreadedConnectionPool(1, 20, host="localhost", port=5432, database="legal_db", user="admin", password="admin123")
+        print("✅ Đã khởi tạo Database Connection Pool!")
+
         # Pre-load các tài nguyên nặng
         model = _get_model()   # Load SentenceTransformer
         _get_bm25()            # Load BM25 Index
@@ -42,6 +52,9 @@ async def lifespan(app: FastAPI):
     yield
     
     print("\n👋 Đang đóng hệ thống...")
+    if db_pool:
+        db_pool.closeall()
+        print("🔒 Đã đóng Database Connection Pool!")
 
 # Khởi tạo ứng dụng FastAPI với lifespan
 app = FastAPI(
@@ -154,24 +167,28 @@ def process_pdf_pipeline(filename: str):
         
         # 4. Hoàn tất -> UPDATE status='ready'
         print(f"[Pipeline] Cập nhật trạng thái thành ready...")
-        conn = psycopg2.connect(host="localhost", port=5432, database="legal_db", user="admin", password="admin123")
-        cursor = conn.cursor()
-        cursor.execute("UPDATE legal_documents SET processing_status = 'ready' WHERE ten_file = %s", (filename,))
-        conn.commit()
-        cursor.close()
-        conn.close()
+        conn = db_pool.getconn()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE legal_documents SET processing_status = 'ready' WHERE ten_file = %s", (filename,))
+            conn.commit()
+            cursor.close()
+        finally:
+            db_pool.putconn(conn)
 
         print(f"[Pipeline] Hoàn tất toàn bộ pipeline: {filename}")
     except Exception as e:
         print(f"[Pipeline Error] Lỗi xử lý {filename}: {e}")
         try:
             # Nếu có lỗi, đánh dấu failed
-            conn = psycopg2.connect(host="localhost", port=5432, database="legal_db", user="admin", password="admin123")
-            cursor = conn.cursor()
-            cursor.execute("UPDATE legal_documents SET processing_status = 'failed' WHERE ten_file = %s", (filename,))
-            conn.commit()
-            cursor.close()
-            conn.close()
+            conn = db_pool.getconn()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE legal_documents SET processing_status = 'failed' WHERE ten_file = %s", (filename,))
+                conn.commit()
+                cursor.close()
+            finally:
+                db_pool.putconn(conn)
         except Exception as db_e:
             print(f"[Pipeline Error] Không thể update status failed: {db_e}")
 
@@ -194,6 +211,36 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
 
     # 4. Trả response
     return {"message": f"Đã nhận file {file.filename}, đang xử lý dưới background."}
+
+@app.get("/documents")
+async def get_documents():
+    """
+    Lấy danh sách các tài liệu pháp luật hiện có trong hệ thống.
+    """
+    try:
+        conn = db_pool.getconn()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT ten_van_ban, so_hieu, ngay_ban_hanh, trang_thai, processing_status FROM legal_documents")
+            rows = cursor.fetchall()
+            
+            documents = []
+            for row in rows:
+                documents.append({
+                    "ten_van_ban": row[0],
+                    "so_hieu": row[1],
+                    "ngay_ban_hanh": row[2].isoformat() if row[2] else None,
+                    "trang_thai": row[3],
+                    "processing_status": row[4]
+                })
+                
+            cursor.close()
+        finally:
+            db_pool.putconn(conn)
+        return documents
+    except Exception as e:
+        print(f"[API Error /documents]: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi khi truy xuất danh sách tài liệu.")
 
 # Khởi chạy server khi chạy trực tiếp file này
 if __name__ == "__main__":

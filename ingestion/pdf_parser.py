@@ -6,14 +6,10 @@ import os
 
 CONTENT_PREVIEW = 100  # Giới hạn ký tự nội dung hiển thị khi print
 
-# ── Danh sách file cần parse ────────────────────────────────────────────
-PDF_FILES = [
-    "LuatDulieucanhan.pdf",
-    "LuatTrituenhantao.pdf",
-    "Luatso20_2023_QH15_Luatgiaodichdientu.pdf",
-]
-
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+
+# ── Danh sách file cần parse ────────────────────────────────────────────
+PDF_FILES = [f for f in os.listdir(DATA_DIR) if f.lower().endswith(".pdf")]
 
 # ── Kết nối PostgreSQL ──────────────────────────────────────────────────
 conn = psycopg2.connect(
@@ -60,12 +56,26 @@ def parse_and_insert(ten_file: str) -> int:
     match_luat = re.search(r'Luật số[:\s]+(\d+/\d{4}/QH\d+)', full_text)
     so_hieu_luat = match_luat.group(1) if match_luat else None
 
-    # Loại văn bản — dòng riêng chứa chữ in hoa
-    match_loai = re.search(
-        r'(?m)^(LUẬT|NGHỊ ĐỊNH|THÔNG TƯ|QUYẾT ĐỊNH|NGHỊ QUYẾT|PHÁP LỆNH)\s*$',
+    # Loại và Tên văn bản — lấy chữ in hoa ở phần đầu
+    match_ten = re.search(
+        r'(?m)^(LUẬT|NGHỊ ĐỊNH|THÔNG TƯ|QUYẾT ĐỊNH|NGHỊ QUYẾT|PHÁP LỆNH)[\s\n]+([A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴÝỶỸ0-9\-\s]+)',
         full_text
     )
-    loai_van_ban = match_loai.group(1).strip() if match_loai else None
+    if match_ten:
+        loai_van_ban = match_ten.group(1).strip()
+        ten_van_ban_raw = match_ten.group(2).strip()
+        ten_van_ban = f"{loai_van_ban} {ten_van_ban_raw}".replace('\n', ' ')
+        ten_van_ban = re.sub(r'\s+', ' ', ten_van_ban).strip()
+        # Xóa ký tự in hoa dư thừa ở cuối (vd: chữ 'C' trong 'Căn cứ')
+        ten_van_ban = re.sub(r'\s+[A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴÝỶỸ]$', '', ten_van_ban).strip()
+    else:
+        # Fallback
+        match_loai = re.search(
+            r'(?m)^(LUẬT|NGHỊ ĐỊNH|THÔNG TƯ|QUYẾT ĐỊNH|NGHỊ QUYẾT|PHÁP LỆNH)\s*$',
+            full_text
+        )
+        loai_van_ban = match_loai.group(1).strip() if match_loai else None
+        ten_van_ban = loai_van_ban or "Chưa rõ tên văn bản"
 
     # Ngày ban hành — "thông qua ngày DD tháng MM năm YYYY"
     # Format lại thành YYYY-MM-DD cho kiểu DATE trong Postgres
@@ -84,6 +94,7 @@ def parse_and_insert(ten_file: str) -> int:
     print("\n" + "=" * 60)
     print(f"  📄 File        : {ten_file}")
     print(f"  Loại văn bản : {loai_van_ban}")
+    print(f"  Tên văn bản  : {ten_van_ban}")
     print(f"  Số hiệu      : {so_hieu_luat}")
     print(f"  Ngày ban hành: {ngay_ban_hanh_str}")
     print("=" * 60)
@@ -91,11 +102,11 @@ def parse_and_insert(ten_file: str) -> int:
     # ── 2. INSERT vào legal_documents để lấy ID ────────────────────────
     cursor.execute(
         """
-        INSERT INTO legal_documents (ten_file, loai_van_ban, so_hieu, ngay_ban_hanh, trang_thai, processing_status)
-        VALUES (%s, %s, %s, %s, %s, 'processing')
+        INSERT INTO legal_documents (ten_file, loai_van_ban, so_hieu, ten_van_ban, ngay_ban_hanh, trang_thai, processing_status)
+        VALUES (%s, %s, %s, %s, %s, %s, 'processing')
         RETURNING id;
         """,
-        (ten_file, loai_van_ban, so_hieu_luat, ngay_ban_hanh_sql, "Hiệu lực")
+        (ten_file, loai_van_ban, so_hieu_luat, ten_van_ban, ngay_ban_hanh_sql, "Hiệu lực")
     )
     document_id = cursor.fetchone()[0]
     print(f"✅ Đã tạo document entry. ID: {document_id}")
@@ -176,8 +187,8 @@ def parse_and_insert(ten_file: str) -> int:
 # ════════════════════════════════════════════════════════════════════════
 # Main — loop qua tất cả PDF
 # ════════════════════════════════════════════════════════════════════════
-    if __name__ == "__main__":
-        total = 0
+if __name__ == "__main__":
+    total = 0
     for f in PDF_FILES:
         total += parse_and_insert(f)
 
