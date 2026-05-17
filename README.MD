@@ -29,6 +29,7 @@ graph TD
 ```
 
 ## 🛠️ Technology Stack
+*   **Frontend**: Streamlit (Chat UI, PDF Upload, Document Manager)
 *   **Backend & API**: FastAPI, Uvicorn, Python
 *   **AI & Orchestration**: LangGraph, Groq API (Llama 3), Sentence-Transformers (Local Embeddings)
 *   **Search & NLP**: Qdrant (Vector Database), Rank-BM25 (Sparse/Lexical Search), Underthesea (Vietnamese NLP Toolkit)
@@ -41,6 +42,7 @@ graph TD
 *   **Metadata-Aware Filtering**: Employs Qdrant's payload capabilities to filter vectors by legal document numbers (`so_hieu`), ensuring the retriever strictly fetches clauses from the exact legal text requested by the user.
 *   **Multi-Turn Contextual Memory**: Integrates Redis to securely store and retrieve sliding-window chat histories. The agent accurately remembers prior interactions, enabling fluid and continuous conversations.
 *   **Automated Data Ingestion Pipeline**: Features an asynchronous background task that parses complex Vietnamese PDF layouts, automatically extracts crucial metadata (Title, Document Number, Date), segments text by legal articles (Điều), and synchronously populates PostgreSQL, BM25 Index, and Qdrant.
+*   **Streamlit Web Interface**: A dark-themed, responsive chat UI built with Streamlit — supporting multi-turn conversation, PDF document upload with live processing feedback, and a document library view with status monitoring.
 
 ## 🚀 Getting Started (Local Development)
 
@@ -51,7 +53,7 @@ graph TD
 
 ### 1. Clone & Environment Setup
 ```bash
-git clone https://github.com/quocthaj/vietnamese-legal-compliance.git
+git clone https://github.com/quocthaj/Vietnamese-Legal-Compliance.git
 cd vietnamese-legal-compliance
 
 # Create .env file and add your GROQ_API_KEY
@@ -89,8 +91,40 @@ python ingestion/bm25_indexer.py
 ```
 
 ### 5. Run the Application
-Start the FastAPI application:
+
+**Start the FastAPI backend:**
 ```bash
 python api/main.py
 ```
-The API will be available at `http://localhost:8000`. You can test the endpoints directly via the interactive Swagger documentation at `http://localhost:8000/docs`.
+The API will be available at `http://localhost:8000`. You can test the endpoints via the interactive Swagger docs at `http://localhost:8000/docs`.
+
+**Start the Streamlit frontend** (in a separate terminal):
+```bash
+streamlit run fe/app.py
+```
+The web UI will be available at `http://localhost:8501`.
+
+---
+
+## 📁 Project Structure
+```
+vietnamese-legal-compliance/
+├── api/
+│   └── main.py              # FastAPI app — /chat, /upload, /documents endpoints
+├── agent/
+│   ├── graph.py             # LangGraph agentic workflow definition
+│   ├── nodes/               # Individual agent nodes (analyzer, retriever, generator, judge…)
+│   └── state.py             # AgentState schema with chat_history
+├── ingestion/
+│   ├── pdf_parser.py        # PDF parsing & metadata extraction
+│   ├── embedder.py          # Sentence-Transformer embedding → Qdrant
+│   ├── bm25_indexer.py      # BM25 sparse index builder
+│   ├── hybrid_search.py     # Hybrid retrieval (BM25 + vector)
+│   └── init_db.py           # PostgreSQL schema initialization
+├── fe/
+│   └── app.py               # Streamlit frontend (Chat · Upload · Documents)
+├── data/                    # Raw PDF legal documents
+├── docker-compose.yml       # PostgreSQL · Qdrant · Redis services
+├── requirements.txt
+└── .env                     # GROQ_API_KEY, DB credentials, HF_TOKEN
+```
