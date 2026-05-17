@@ -11,3 +11,4 @@ rank_bm25
 underthesea
 redis
 python-multipart
+streamlit

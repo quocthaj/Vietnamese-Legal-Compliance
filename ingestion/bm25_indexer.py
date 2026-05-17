@@ -30,7 +30,8 @@ except ImportError:
 
 
 # ── Config ──────────────────────────────────────────────────────────────────
-load_dotenv(dotenv_path="../.env")
+from pathlib import Path
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 DB_CONFIG = dict(
     host="localhost",

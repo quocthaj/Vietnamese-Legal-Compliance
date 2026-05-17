@@ -52,7 +52,8 @@ print(f"🔤 Tokenizer: {_TOKENIZER}")
 
 
 # ── Config ──────────────────────────────────────────────────────────────────
-load_dotenv(dotenv_path="../.env")
+from pathlib import Path
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 MODEL_NAME    = "mainguyen9/vietlegal-harrier-0.6b"
 COLLECTION    = "legal_chunks"
