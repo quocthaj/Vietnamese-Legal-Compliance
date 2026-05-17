@@ -8,6 +8,10 @@ from pydantic import BaseModel
 import shutil
 import subprocess
 import psycopg2
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Cấu hình sys.path để import được module từ thư mục gốc
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
