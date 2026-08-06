@@ -128,3 +128,42 @@ vietnamese-legal-compliance/
 ├── requirements.txt
 └── .env                     # GROQ_API_KEY, DB credentials, HF_TOKEN
 ```
+
+---
+
+## 🌐 Production Deployment (Hybrid Cloud Run & Serverless DBs)
+
+This project is optimized for deployment **completely for free (0 VND)** using a modern Serverless Hybrid Cloud architecture:
+* **Frontend & Backend Hosting**: [Google Cloud Run](https://cloud.google.com/run) (Scale-to-zero Always Free tier).
+* **Metadata & Document Database**: [Neon.tech](https://neon.tech/) (Serverless Postgres Free Tier).
+* **Vector Store**: [Qdrant Cloud](https://qdrant.to/cloud) (Free Tier Cluster).
+* **Memory & Session Cache**: [Upstash](https://upstash.com/) (Serverless Redis Free Tier over TLS).
+
+### 1. Database Configuration Setup
+1. Create a free PostgreSQL instance on **Neon.tech** and copy the `POSTGRES_URL`.
+2. Create a free cluster on **Qdrant Cloud** and copy the `QDRANT_URL` and `QDRANT_API_KEY`.
+3. Create a Serverless Redis database on **Upstash** (enable TLS) and copy the connection URL, changing the protocol to `rediss://` (e.g., `rediss://default:...`).
+
+### 2. Google Cloud Run Deployment Step-by-Step
+Deploy the Backend and Frontend as two separate services on Cloud Run connected to your GitHub repository:
+
+#### API Backend Service (`raglaws`)
+* **Build Type**: Cloud Build (Dockerfile)
+* **Source Directory**: `/` (Repository Root)
+* **Dockerfile Path**: `api/Dockerfile`
+* **Port**: `8000`
+* **Allocation**: CPU is allocated only during request processing (Request-based billing to stay in the Free Tier).
+* **Environment Variables**:
+  * `POSTGRES_URL` (Neon Postgres URL)
+  * `QDRANT_URL` & `QDRANT_API_KEY` (Qdrant Cloud)
+  * `REDIS_URL` (Upstash Redis URL with `rediss://` protocol)
+  * `GROQ_API_KEY` (Groq API Key)
+  * `HF_TOKEN` (Hugging Face Token)
+
+#### Streamlit Frontend Service (`raglaws-fe`)
+* **Build Type**: Cloud Build (Dockerfile)
+* **Source Directory**: `/` (Repository Root)
+* **Dockerfile Path**: `fe/Dockerfile`
+* **Port**: `8501`
+* **Environment Variables**:
+  * `API_BASE` (URL of the Backend service deployed above, e.g., `https://raglaws-xxxx.run.app`)
