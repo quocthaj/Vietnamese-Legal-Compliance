@@ -1,0 +1,13 @@
+{
+  "stories": [
+    {
+      "storyId": "1-1-cau-hinh-docker-compose-cho-cac-dich-vu-phu-tro",
+      "title": "Cấu hình Docker Compose cho các dịch vụ phụ trợ",
+      "complexity": {
+        "level": "Low",
+        "score": 3,
+        "reasons": ["Thiết lập cơ sở hạ tầng tiêu chuẩn, độ phức tạp thấp."]
+      }
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+[
+  {
+    "query": "Nội dung Điều 12 Luật Trí tuệ nhân tạo là gì?",
+    "expected_so_hieu": "134/2025/QH15",
+    "expected_dieu": 12,
+    "ten_file": "LuatTrituenhantao.pdf"
+  },
+  {
+    "query": "Luật Trí tuệ nhân tạo quy định về Khung đạo đức trí tuệ nhân tạo quốc gia như thế nào?",
+    "expected_so_hieu": "134/2025/QH15",
+    "expected_dieu": 26,
+    "ten_file": "LuatTrituenhantao.pdf"
+  },
+  {
+    "query": "Hãy giải thích Điều 49 về Nội dung quản lý nhà nước về giao dịch điện tử.",
+    "expected_so_hieu": "20/2023/QH15",
+    "expected_dieu": 49,
+    "ten_file": "Luatso20_2023_QH15_Luatgiaodichdientu.pdf"
+  },
+  {
+    "query": "Nội dung Điều 44 Luật Giao dịch điện tử là gì?",
+    "expected_so_hieu": "20/2023/QH15",
+    "expected_dieu": 44,
+    "ten_file": "Luatso20_2023_QH15_Luatgiaodichdientu.pdf"
+  },
+  {
+    "query": "Cho tôi biết Điều 39 trong Luật Dữ liệu cá nhân.",
+    "expected_so_hieu": "91/2025/QH15",
+    "expected_dieu": 39,
+    "ten_file": "LuatDulieucanhan.pdf"
+  },
+  {
+    "query": "Điều 13 của Luật An ninh mạng quy định gì?",
+    "expected_so_hieu": "116/2025/QH15",
+    "expected_dieu": 13,
+    "ten_file": "Luatanninhmang.pdf"
+  },
+  {
+    "query": "Hãy giải thích Điều 15 về Sản phẩm, dịch vụ công nghệ số hạn chế chuyển giao.",
+    "expected_so_hieu": "71/2025/QH15",
+    "expected_dieu": 15,
+    "ten_file": "Luatcongngheso.pdf"
+  },
+  {
+    "query": "Luật An ninh mạng quy định về Lực lượng bảo vệ an ninh mạng như thế nào?",
+    "expected_so_hieu": "116/2025/QH15",
+    "expected_dieu": 30,
+    "ten_file": "Luatanninhmang.pdf"
+  },
+  {
+    "query": "Nội dung Điều 40 Luật Công nghệ số là gì?",
+    "expected_so_hieu": "71/2025/QH15",
+    "expected_dieu": 40,
+    "ten_file": "Luatcongngheso.pdf"
+  },
+  {
+    "query": "Hãy giải thích Điều 48 về Báo cáo, tổng hợp, chia sẻ dữ liệu phục vụ quản lý nhà nước về giao dịch điện tử.",
+    "expected_so_hieu": "20/2023/QH15",
+    "expected_dieu": 48,
+    "ten_file": "Luatso20_2023_QH15_Luatgiaodichdientu.pdf"
+  },
+  {
+    "query": "Nội dung Điều 32 Luật Trí tuệ nhân tạo là gì?",
+    "expected_so_hieu": "134/2025/QH15",
+    "expected_dieu": 32,
+    "ten_file": "LuatTrituenhantao.pdf"
+  },
+  {
+    "query": "Hãy giải thích Điều 4 về Nguyên tắc cơ bản trong hoạt động trí tuệ nhân tạo.",
+    "expected_so_hieu": "134/2025/QH15",
+    "expected_dieu": 4,
+    "ten_file": "LuatTrituenhantao.pdf"
+  },
+  {
+    "query": "Nội dung Điều 23 Luật Công nghệ số là gì?",
+    "expected_so_hieu": "71/2025/QH15",
+    "expected_dieu": 23,
+    "ten_file": "Luatcongngheso.pdf"
+  },
+  {
+    "query": "Nội dung Điều 26 Luật Công nghệ số là gì?",
+    "expected_so_hieu": "71/2025/QH15",
+    "expected_dieu": 26,
+    "ten_file": "Luatcongngheso.pdf"
+  },
+  {
+    "query": "Hãy giải thích Điều 1 về Phạm vi điều chỉnh và đối tượng áp dụng.",
+    "expected_so_hieu": "116/2025/QH15",
+    "expected_dieu": 1,
+    "ten_file": "Luatanninhmang.pdf"
+  },
+  {
+    "query": "Điều 7 của Luật Giao dịch điện tử quy định gì?",
+    "expected_so_hieu": "20/2023/QH15",
+    "expected_dieu": 7,
+    "ten_file": "Luatso20_2023_QH15_Luatgiaodichdientu.pdf"
+  },
+  {
+    "query": "Luật Công nghệ số quy định về Sửa đổi, bổ sung, thay thế, bãi bỏ một số điều của các luật có liên quan như thế nào?",
+    "expected_so_hieu": "71/2025/QH15",
+    "expected_dieu": 49,
+    "ten_file": "Luatcongngheso.pdf"
+  },
+  {
+    "query": "Hãy giải thích Điều 28 về Bảo vệ dữ liệu cá nhân trong kinh doanh dịch vụ quảng cáo.",
+    "expected_so_hieu": "91/2025/QH15",
+    "expected_dieu": 28,
+    "ten_file": "LuatDulieucanhan.pdf"
+  },
+  {
+    "query": "Nội dung Điều 8 Luật An ninh mạng là gì?",
+    "expected_so_hieu": "116/2025/QH15",
+    "expected_dieu": 8,
+    "ten_file": "Luatanninhmang.pdf"
+  },
+  {
+    "query": "Điều 1 của Luật Dữ liệu cá nhân quy định gì?",
+    "expected_so_hieu": "91/2025/QH15",
+    "expected_dieu": 1,
+    "ten_file": "LuatDulieucanhan.pdf"
+  },
+  {
+    "query": "Nội dung Điều 20 Luật Dữ liệu cá nhân là gì?",
+    "expected_so_hieu": "91/2025/QH15",
+    "expected_dieu": 20,
+    "ten_file": "LuatDulieucanhan.pdf"
+  },
+  {
+    "query": "Nội dung Điều 31 Luật Dữ liệu cá nhân là gì?",
+    "expected_so_hieu": "91/2025/QH15",
+    "expected_dieu": 31,
+    "ten_file": "LuatDulieucanhan.pdf"
+  },
+  {
+    "query": "Nội dung Điều 33 Luật Dữ liệu cá nhân là gì?",
+    "expected_so_hieu": "91/2025/QH15",
+    "expected_dieu": 33,
+    "ten_file": "LuatDulieucanhan.pdf"
+  },
+  {
+    "query": "Nội dung Điều 29 Luật Công nghệ số là gì?",
+    "expected_so_hieu": "71/2025/QH15",
+    "expected_dieu": 29,
+    "ten_file": "Luatcongngheso.pdf"
+  },
+  {
+    "query": "Nội dung Điều 38 Luật Dữ liệu cá nhân là gì?",
+    "expected_so_hieu": "91/2025/QH15",
+    "expected_dieu": 38,
+    "ten_file": "LuatDulieucanhan.pdf"
+  },
+  {
+    "query": "Luật An ninh mạng quy định về Chính sách của Nhà nước về an ninh mạng như thế nào?",
+    "expected_so_hieu": "116/2025/QH15",
+    "expected_dieu": 3,
+    "ten_file": "Luatanninhmang.pdf"
+  },
+  {
+    "query": "Hãy giải thích Điều 42 về Kết nối, chia sẻ dữ liệu.",
+    "expected_so_hieu": "20/2023/QH15",
+    "expected_dieu": 42,
+    "ten_file": "Luatso20_2023_QH15_Luatgiaodichdientu.pdf"
+  },
+  {
+    "query": "Cho tôi biết Điều 14 trong Luật An ninh mạng.",
+    "expected_so_hieu": "116/2025/QH15",
+    "expected_dieu": 14,
+    "ten_file": "Luatanninhmang.pdf"
+  },
+  {
+    "query": "Điều 20 của Luật Giao dịch điện tử quy định gì?",
+    "expected_so_hieu": "20/2023/QH15",
+    "expected_dieu": 20,
+    "ten_file": "Luatso20_2023_QH15_Luatgiaodichdientu.pdf"
+  },
+  {
+    "query": "Luật Dữ liệu cá nhân quy định về Bảo vệ dữ liệu cá nhân của trẻ em, người bị mất hoặc hạn chế năng lực hành vi dân sự, người có khó khăn trong nhận thức, làm chủ hành vi 28 CÔNG BÁO/Số 971 + 972/Ngày 24-7-2025 như thế nào?",
+    "expected_so_hieu": "91/2025/QH15",
+    "expected_dieu": 24,
+    "ten_file": "LuatDulieucanhan.pdf"
+  }
+]

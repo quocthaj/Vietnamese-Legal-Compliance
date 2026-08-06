@@ -67,6 +67,45 @@ services:
     depends_on:
       - postgres
 
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: api
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-legal_db}
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - pdf_storage:/app/shared_pdfs
+    networks:
+      - vlc_network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - qdrant
+      - redis
+
+  fe:
+    build:
+      context: .
+      dockerfile: fe/Dockerfile
+    container_name: fe
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE=http://api:8000
+    networks:
+      - vlc_network
+    restart: unless-stopped
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
   qdrant_data:

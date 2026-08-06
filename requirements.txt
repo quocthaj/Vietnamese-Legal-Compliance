@@ -12,3 +12,5 @@ underthesea
 redis
 python-multipart
 streamlit
+tenacity
+torch==2.13.0+cpu

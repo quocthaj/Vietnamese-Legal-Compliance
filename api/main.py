@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import psycopg2
 from dotenv import load_dotenv
-
+from tenacity import retry, stop_after_attempt, wait_exponential
 # Load environment variables
 load_dotenv()
 
@@ -26,6 +26,23 @@ from psycopg2 import pool
 # Global database connection pool
 db_pool = None
 
+@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=10))
+def init_resources():
+    global db_pool
+    postgres_url = os.getenv("POSTGRES_URL", "postgresql://admin:admin123@localhost:5432/legal_db")
+    db_pool = pool.ThreadedConnectionPool(1, 20, dsn=postgres_url)
+    print("✅ Đã khởi tạo Database Connection Pool!")
+
+    # Pre-load các tài nguyên nặng
+    model = _get_model()   # Load SentenceTransformer
+    _get_bm25()            # Load BM25 Index
+    _get_qdrant()          # Kết nối Qdrant
+    
+    # 🔥 WARMUP: Chạy thử một câu query giả để model thực sự sẵn sàng
+    print("⚡ Đang thực hiện warmup (chạy thử inference)...")
+    model.encode("warmup query", normalize_embeddings=True)
+    print("✅ Tất cả tài nguyên đã sẵn sàng & Warmup hoàn tất!")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -35,20 +52,7 @@ async def lifespan(app: FastAPI):
     print("\n" + "="*50)
     print("🚀 ĐANG KHỞI TẠO HỆ THỐNG PHÁP LUẬT...")
     try:
-        # Khởi tạo Connection Pool
-        db_pool = pool.ThreadedConnectionPool(1, 20, host="localhost", port=5432, database="legal_db", user="admin", password="admin123")
-        print("✅ Đã khởi tạo Database Connection Pool!")
-
-        # Pre-load các tài nguyên nặng
-        model = _get_model()   # Load SentenceTransformer
-        _get_bm25()            # Load BM25 Index
-        _get_qdrant()          # Kết nối Qdrant
-        
-        # 🔥 WARMUP: Chạy thử một câu query giả để model thực sự sẵn sàng
-        print("⚡ Đang thực hiện warmup (chạy thử inference)...")
-        model.encode("warmup query", normalize_embeddings=True)
-        
-        print("✅ Tất cả tài nguyên đã sẵn sàng & Warmup hoàn tất!")
+        init_resources()
     except Exception as e:
         print(f"❌ Lỗi khi khởi tạo tài nguyên: {e}")
     print("="*50 + "\n")

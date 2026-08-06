@@ -12,13 +12,11 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 PDF_FILES = [f for f in os.listdir(DATA_DIR) if f.lower().endswith(".pdf")]
 
 # ── Kết nối PostgreSQL ──────────────────────────────────────────────────
-conn = psycopg2.connect(
-    host="localhost",
-    port=5432,
-    database="legal_db",
-    user="admin",
-    password="admin123"
-)
+from dotenv import load_dotenv
+load_dotenv()
+
+postgres_url = os.getenv("POSTGRES_URL", "postgresql://admin:admin123@localhost:5432/legal_db")
+conn = psycopg2.connect(postgres_url)
 cursor = conn.cursor()
 print("✅ Kết nối PostgreSQL thành công!")
 

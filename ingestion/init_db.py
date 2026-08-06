@@ -1,12 +1,11 @@
+import os
 import psycopg2
+from dotenv import load_dotenv
 
-conn = psycopg2.connect(
-    host="localhost",
-    port=5432,
-    database="legal_db",
-    user="admin",
-    password="admin123"
-)
+load_dotenv()
+
+postgres_url = os.getenv("POSTGRES_URL", "postgresql://admin:admin123@localhost:5432/legal_db")
+conn = psycopg2.connect(postgres_url)
 
 cursor = conn.cursor()
 

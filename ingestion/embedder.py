@@ -26,14 +26,6 @@ COLLECTION   = "legal_chunks"
 VECTOR_SIZE  = 1024
 BATCH_SIZE   = 16                      # số chunk embed cùng lúc
 
-DB_CONFIG = dict(
-    host="localhost",
-    port=5432,
-    database="legal_db",
-    user="admin",
-    password="admin123",
-)
-
 def run_embedding(model=None):
     # ── 1. Load model ───────────────────────────────────────────────────────────
     if model is None:
@@ -47,11 +39,14 @@ def run_embedding(model=None):
         print("⚡ Sử dụng model đã được load (warmup) sẵn.")
 
     # ── 2. Kết nối PostgreSQL & Qdrant ─────────────────────────────────────────
-    pg_conn   = psycopg2.connect(**DB_CONFIG)
+    postgres_url = os.getenv("POSTGRES_URL", "postgresql://admin:admin123@localhost:5432/legal_db")
+    pg_conn   = psycopg2.connect(postgres_url)
     pg_cursor = pg_conn.cursor()
     print("✅ Kết nối PostgreSQL thành công.")
 
-    qdrant = QdrantClient(host="localhost", port=6333)
+    qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+    qdrant_api_key = os.getenv("QDRANT_API_KEY")
+    qdrant = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     print("✅ Kết nối Qdrant thành công.\n")
 
     # Tạo collection nếu chưa có (idempotent)

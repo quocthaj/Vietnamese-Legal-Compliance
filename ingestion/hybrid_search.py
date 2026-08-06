@@ -130,7 +130,9 @@ def _get_qdrant():
     global _qdrant
     if _qdrant is not None:
         return _qdrant
-    _qdrant = QdrantClient(host="localhost", port=6333)
+    qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+    qdrant_api_key = os.getenv("QDRANT_API_KEY")
+    _qdrant = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     print("✅ Qdrant connected.")
     return _qdrant
 
