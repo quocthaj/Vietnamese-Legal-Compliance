@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 langgraph
 fastapi
 uvicorn
@@ -13,4 +14,4 @@ redis
 python-multipart
 streamlit
 tenacity
-torch==2.13.0+cpu
+torch==2.3.0+cpu
