@@ -1,0 +1,33 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--provenance=false'
+      - '-t'
+      - 'gcr.io/raglaw-504706/raglaw-fe:$COMMIT_SHA'
+      - '-f'
+      - 'fe/Dockerfile'
+      - '.'
+    id: 'build-frontend'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/raglaw-504706/raglaw-fe:$COMMIT_SHA']
+    id: 'push-frontend'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'raglaw-fe'
+      - '--image=gcr.io/raglaw-504706/raglaw-fe:$COMMIT_SHA'
+      - '--region=asia-southeast1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+    id: 'deploy-frontend'
+
+images:
+  - 'gcr.io/raglaw-504706/raglaw-fe:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
