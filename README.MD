@@ -167,3 +167,4 @@ Deploy the Backend and Frontend as two separate services on Cloud Run connected 
 * **Port**: `8501`
 * **Environment Variables**:
   * `API_BASE` (URL of the Backend service deployed above, e.g., `https://raglaws-xxxx.run.app`)
+  * **CI/CD Platform**: Google Cloud Build (configured via `cloudbuild.backend.yaml` and `cloudbuild.frontend.yaml` in the root).
