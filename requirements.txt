@@ -14,4 +14,4 @@ redis
 python-multipart
 streamlit
 tenacity
-torch==2.3.0+cpu
+torch==2.4.1+cpu
