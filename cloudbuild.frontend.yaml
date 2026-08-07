@@ -23,6 +23,7 @@ steps:
       - '--region=asia-southeast1'
       - '--platform=managed'
       - '--allow-unauthenticated'
+      - '--port=8501'
     id: 'deploy-frontend'
 
 images:
