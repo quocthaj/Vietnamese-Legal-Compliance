@@ -72,6 +72,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.get("/")
+async def root():
+    return {
+        "status": "ok",
+        "message": "Vietnamese Legal Compliance Agent API is running!"
+    }
+
 # Model nhận dữ liệu từ request
 class ChatRequest(BaseModel):
     query: str

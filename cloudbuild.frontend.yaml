@@ -2,6 +2,8 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--provenance=false'
+      - '--sbom=false'
       - '-t'
       - 'gcr.io/raglaw-504706/raglaw-fe:$COMMIT_SHA'
       - '-f'
@@ -24,6 +26,10 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--port=8501'
+      - '--cpu=1'
+      - '--memory=1Gi'
+      - '--min-instances=0'
+      - '--max-instances=3'
     id: 'deploy-frontend'
 
 images:

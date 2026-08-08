@@ -12,6 +12,7 @@ import redis
 from typing import List
 
 # ── Config ──────────────────────────────────────────────────────────────────
+REDIS_URL = os.getenv("REDIS_URL")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
@@ -26,12 +27,18 @@ def _get_redis() -> redis.Redis:
     """Khởi tạo Redis client (singleton)."""
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis.Redis(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            db=REDIS_DB,
-            decode_responses=True,  # tự decode bytes → str
-        )
+        if REDIS_URL:
+            _redis_client = redis.Redis.from_url(
+                REDIS_URL,
+                decode_responses=True,  # tự decode bytes → str
+            )
+        else:
+            _redis_client = redis.Redis(
+                host=REDIS_HOST,
+                port=REDIS_PORT,
+                db=REDIS_DB,
+                decode_responses=True,  # tự decode bytes → str
+            )
     return _redis_client
 
 
