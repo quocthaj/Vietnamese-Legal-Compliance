@@ -92,10 +92,27 @@ def _get_bm25():
         return _bm25, _chunks
 
     if not os.path.exists(BM25_CACHE):
-        raise FileNotFoundError(
-            f"Không tìm thấy '{BM25_CACHE}'. "
-            f"Hãy chạy bm25_indexer.py trước để build index."
-        )
+        print(f"⚠️ Không tìm thấy cache '{BM25_CACHE}'. Đang tiến hành build index động...")
+        try:
+            from ingestion.bm25_indexer import load_chunks_from_pg, build_bm25, save_index
+            chunks = load_chunks_from_pg()
+            if not chunks:
+                print("⚠️ Database không có chunk nào để build BM25.")
+                _bm25 = None
+                _chunks = []
+                return _bm25, _chunks
+            bm25 = build_bm25(chunks)
+            save_index(bm25, chunks, BM25_CACHE)
+            _bm25 = bm25
+            _chunks = chunks
+            print(f"✅ Đã build BM25 index động thành công: {len(_chunks)} chunks.")
+            return _bm25, _chunks
+        except Exception as e:
+            print(f"❌ Lỗi khi build index động: {e}")
+            _bm25 = None
+            _chunks = []
+            return _bm25, _chunks
+
     with open(BM25_CACHE, "rb") as f:
         data = pickle.load(f)
     _bm25   = data["bm25"]
@@ -146,6 +163,8 @@ def search_bm25(query: str, top_k: int = DEFAULT_TOP) -> list[dict]:
         pg_id, rank, bm25_score, + metadata
     """
     bm25, chunks = _get_bm25()
+    if bm25 is None or not chunks:
+        return []
     query_tokens = tokenize(query)
     scores       = bm25.get_scores(query_tokens)
 

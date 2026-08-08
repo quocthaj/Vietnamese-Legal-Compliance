@@ -78,7 +78,12 @@ FROM legal_chunks;
 def load_chunks_from_pg() -> list[dict]:
     """Trả về list of dict, mỗi dict là 1 chunk."""
     print("\n📡 Kết nối PostgreSQL...")
-    conn   = psycopg2.connect(**DB_CONFIG)
+    import os
+    postgres_url = os.getenv("POSTGRES_URL")
+    if postgres_url:
+        conn = psycopg2.connect(postgres_url)
+    else:
+        conn = psycopg2.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
     # In thống kê
