@@ -25,7 +25,7 @@ steps:
       - '--allow-unauthenticated'
       - '--port=8000'
       - '--cpu=2'
-      - '--memory=2Gi'
+      - '--memory=8Gi'
       - '--min-instances=0'
       - '--max-instances=3'
     id: 'deploy-backend'
