@@ -8,17 +8,21 @@ CONTENT_PREVIEW = 100  # Giới hạn ký tự nội dung hiển thị khi print
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
-# ── Danh sách file cần parse ────────────────────────────────────────────
-PDF_FILES = [f for f in os.listdir(DATA_DIR) if f.lower().endswith(".pdf")]
-
-# ── Kết nối PostgreSQL ──────────────────────────────────────────────────
+# ── Kết nối PostgreSQL lazily ───────────────────────────────────────────
 from dotenv import load_dotenv
 load_dotenv()
 
-postgres_url = os.getenv("POSTGRES_URL", "postgresql://admin:admin123@localhost:5432/legal_db")
-conn = psycopg2.connect(postgres_url)
-cursor = conn.cursor()
-print("✅ Kết nối PostgreSQL thành công!")
+_conn = None
+_cursor = None
+
+def _get_db():
+    global _conn, _cursor
+    if _conn is None or _conn.closed:
+        postgres_url = os.getenv("POSTGRES_URL", "postgresql://admin:admin123@localhost:5432/legal_db")
+        _conn = psycopg2.connect(postgres_url)
+        _cursor = _conn.cursor()
+        print("✅ Kết nối PostgreSQL thành công!")
+    return _conn, _cursor
 
 
 def parse_and_insert(ten_file: str) -> int:
@@ -27,6 +31,7 @@ def parse_and_insert(ten_file: str) -> int:
     → INSERT vào legal_chunks kèm document_id.
     Trả về số điều đã insert.
     """
+    conn, cursor = _get_db()
     # ── Kiểm tra trùng trong legal_documents ────────────────────────────
     cursor.execute(
         "SELECT id FROM legal_documents WHERE ten_file = %s", (ten_file,)
@@ -186,11 +191,13 @@ def parse_and_insert(ten_file: str) -> int:
 # Main — loop qua tất cả PDF
 # ════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
+    PDF_FILES = [f for f in os.listdir(DATA_DIR) if f.lower().endswith(".pdf")]
     total = 0
     for f in PDF_FILES:
         total += parse_and_insert(f)
 
     print(f"\n🎉 Tổng cộng: {total} điều đã được insert.")
+    conn, cursor = _get_db()
     cursor.close()
     conn.close()
     print("🔒 Đã đóng kết nối PostgreSQL.")
