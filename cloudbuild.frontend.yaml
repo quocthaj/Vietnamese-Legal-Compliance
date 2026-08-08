@@ -2,8 +2,6 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
-      - '--provenance=false'
-      - '--sbom=false'
       - '-t'
       - 'gcr.io/raglaw-504706/raglaw-fe:$COMMIT_SHA'
       - '-f'
