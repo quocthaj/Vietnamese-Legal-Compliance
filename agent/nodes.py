@@ -11,8 +11,18 @@ from ingestion.hybrid_search import hybrid_search
 
 load_dotenv() # Load environment variables from .env file
 
-# Khởi tạo Groq client (đảm bảo bạn đã set biến môi trường GROQ_API_KEY)
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+_client = None
+
+def _get_client() -> Groq:
+    """Khởi tạo Groq client lazily để tránh lỗi crash khi import module (startup time)"""
+    global _client
+    if _client is None:
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            # Ta chỉ báo lỗi khi thực sự gọi đến LLM tại runtime
+            raise ValueError("Biến môi trường GROQ_API_KEY chưa được cấu hình. Vui lòng kiểm tra lại cấu hình Cloud Run!")
+        _client = Groq(api_key=api_key)
+    return _client
 
 def query_analyzer(state: dict) -> dict:
     """Analyze the user's query using Groq API."""
@@ -40,7 +50,7 @@ Trả về false nếu câu hỏi mô tả được hành vi hoặc tình huốn
 Chỉ trả về JSON hợp lệ, không bọc trong markdown (```json)."""
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Phân tích câu hỏi: {query}"}
@@ -124,7 +134,7 @@ Quy tắc:
 - Chỉ trả về JSON hợp lệ, không bọc trong markdown."""
 
             try:
-                response = client.chat.completions.create(
+                response = _get_client().chat.completions.create(
                     messages=[
                         {"role": "system", "content": crag_system_prompt},
                         {"role": "user", "content": f"Câu hỏi: {query}\n\nCác đoạn trích:\n{context_str}"}
@@ -178,7 +188,7 @@ Phong cách: trang trọng, chính xác, cấu trúc rõ ràng."""
     user_message = {"role": "user", "content": f"Câu hỏi: {query}\n\nTài liệu:\n{context}"}
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
                 *chat_history,       # history cũ (multi-turn context)
@@ -230,7 +240,7 @@ Quy trình:
 Yêu cầu trả về JSON hợp lệ (không bọc trong markdown)."""
     user_message = f"Context:\n{context}\n\nAnswer:\n{answer}"
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
